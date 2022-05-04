@@ -95,8 +95,12 @@ class QueueFrameListener(object):
         self.queue = Queue(maxsize=maxsize)
 
     def __call__(self, frame_type, frame):
+        # you can also check is the queue is full using .full method
+        if self.queue.qsize() >= 12: # change the number of frames you want to use 
+            # basically remove an item to accomodate the newer frames
+            _ = self.get() # or, self.queue.get(True, timeout)
         self.queue.put_nowait((frame_type, frame))
-
+ 
     def get(self, timeout=False):
         return self.queue.get(True, timeout)
 
@@ -184,7 +188,9 @@ class Device(object):
 
     """
 
-    def __init__(self, c_object=None):
+    def __init__(self, c_object=None, serial=None):
+        if serial is not None:
+            c_object = lib.freenect2_open_device_by_serial(_get_freenect2(), serial)
         if c_object is None:
             c_object = lib.freenect2_open_default_device(_get_freenect2())
         self._c_object = c_object
@@ -346,7 +352,8 @@ class Frame(object):
         attributes are initialised.
 
         """
-        return Frame(lib.freenect2_frame_create(width, height, bytes_per_pixel))
+        frame_ref = lib.freenect2_frame_create(width, height, bytes_per_pixel)
+        return Frame(ffi.gc(frame_ref, lib.freenect2_frame_dispose))
 
     def to_image(self):
         """Convert the Frame to a PIL :py:class:`Image` instance."""
